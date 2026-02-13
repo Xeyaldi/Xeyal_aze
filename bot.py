@@ -12,7 +12,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 # KONFİQURASİYA
 # =====================
 # Bura öz Bot Tokenini yazmalısan
-API_TOKEN = "BOT_TOKEN_BURA_YAZ"
+API_TOKEN = "7886882115:AAEodWPGRhT6CQ-1rQgHy4ZKL_3wkKENe8Q"
 OWNER_ID = 8024893255
 
 bot = Bot(token=API_TOKEN)
