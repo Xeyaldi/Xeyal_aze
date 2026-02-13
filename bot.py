@@ -15,9 +15,9 @@ OWNER_ID = 8024893255
 API_TOKEN = "7886882115:AAEodWPGRhT6CQ-1rQgHy4ZKL_3wkKENe8Q"
 
 SOYUS_LISTESI = [
-    "gijdillaq", "peyser", "qanciq", "bicbala", "ogras", "sherefsiz", "alcaq",
+    "gijdillağ", "peyser", "peysər", "bicbala", "ogras", "serefsiz", "alçaq",
     "exlaqsiz", "got", "amciq", "dausaq", "sik", "dashaq", "memesi", "götveren",
-    "götvərən", "peysər", "gicdillaq", "ogrash", "şərəfsiz", "əxlaqsız", "qush",
+    "götvərən", "peysər", "gicdillaq", "oğraş", "şərəfsiz", "əxlaqsız", "qush",
     "gic", "var yox", "nesil necebe", "ananin", "bacinin", "atavin", "var-yox",
     "qancıq", "biçbala", "oğraş", "sikiş", "amcıq", "daşşaq", "götün", "peysərsən"
 ]
@@ -173,8 +173,8 @@ async def process_top_callback(callback: types.CallbackQuery):
     db_cursor.execute(f"SELECT user_info.first_name, scores.msg_sayi FROM scores JOIN user_info ON scores.user_id = user_info.user_id WHERE scores.chat_id = ? AND scores.kateqoriya = ? ORDER BY scores.msg_sayi DESC LIMIT 20", (callback.message.chat.id, kat))
     rows = db_cursor.fetchall()
     
-    res = "📊 Message Scor\n"
-    res += f"👥 Qrupunuzdakı {kat_name} ən çox aktiv olanlar:\n\n"
+    res = "📊 Mesaj sayğacı\n"
+    res += f"👥 bu Qrupda {kat_name} ən çox aktiv olanlar:\n\n"
     res += "İstifadəçi → Mesaj\n"
     
     if not rows:
@@ -198,7 +198,7 @@ async def back_to_top(callback: types.CallbackQuery):
                 InlineKeyboardButton(text="📅 Həftəlik", callback_data="top_həftəlik"),
                 InlineKeyboardButton(text="📅 Aylıq", callback_data="top_aylıq"))
     builder.row(InlineKeyboardButton(text="📊 Bütün zamanlarda", callback_data="top_ümumi"))
-    await callback.message.edit_text("📊 Message Scor\n\n👥 Sıralama növünü seçin:", reply_markup=builder.as_markup())
+    await callback.message.edit_text("📊 Mesaj sayğacı\n\n👥 Sıralama növünü seçin:", reply_markup=builder.as_markup())
 
 # ==========================================================
 # 7. DİGƏR KOMANDALAR (/MY, /STIKER, OYUNLAR)
