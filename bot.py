@@ -9,7 +9,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardButton, ChatPermissions
 
 # ==========================================================
-# ⚙️ KONFİQURASİYA
+# KONFİQURASİYA
 # ==========================================================
 OWNER_ID = 8024893255
 API_TOKEN = "7886882115:AAEodWPGRhT6CQ-1rQgHy4ZKL_3wkKENe8Q"
@@ -18,7 +18,7 @@ bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
 # ==========================================================
-# 📊 MƏLUMAT BAZASI SİSTEMİ
+# MƏLUMAT BAZASI SİSTEMİ
 # ==========================================================
 def init_db():
     connection = sqlite3.connect("flower_security_ultra.db")
@@ -33,7 +33,7 @@ def init_db():
 db_conn, db_cursor = init_db()
 
 # ==========================================================
-# 🛡️ YETKİ VƏ İCAZƏ YOXLANIŞLARI
+# YETKİ VƏ İCAZƏ YOXLANIŞLARI
 # ==========================================================
 async def check_permissions(message: types.Message):
     user_member = await bot.get_chat_member(message.chat.id, message.from_user.id)
@@ -48,7 +48,7 @@ async def check_permissions(message: types.Message):
     return True
 
 # ==========================================================
-# 👋 START VƏ HELP
+# START VƏ HELP
 # ==========================================================
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
@@ -56,39 +56,48 @@ async def start_handler(message: types.Message):
         "🤖 Flower-Security Qrup idarə Botu\n\n"
         "🛡️ İmkanlar:\n"
         "• Link / Stiker / GIF avtomatik nəzarət\n"
-        "• `/ban`, `/mute`, `/warn` (3/3 Ban sistemi)\n"
-        "• `/topmesaj` reytinq və `/my` statistika\n"
+        "• /ban, /unban, /mute, /unmute, /warn (3/3 sistemi)\n"
+        "• /topmesaj reytinq və /my statistika\n"
         "• 🎲 Əyləncəli animasiyalı oyunlar\n\n"
-        "👮 **Botu qrupa əlavə edib admin yetkisi verin.**\n"
-        "ℹ️ Əmrlərin siyahısı üçün `/help` yazın."
+        "👮 Botu qrupa əlavə edib admin yetkisi verin.\n"
+        "ℹ️ Əmrlərin siyahısı üçün /help yazın."
     )
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="➕ Botu Qrupa Əlavə Et", url=f"https://t.me/Miss_Flower_bot?startgroup=true"))
     builder.row(InlineKeyboardButton(text="📢 Kanal", url="https://t.me/ht_bots"), InlineKeyboardButton(text="💬 Dəstək", url="https://t.me/ht_bots_chat"))
     builder.row(InlineKeyboardButton(text="👤 Developer", url=f"tg://user?id={OWNER_ID}"))
-    await message.answer(welcome_text, reply_markup=builder.as_markup(), parse_mode="Markdown")
+    await message.answer(welcome_text, reply_markup=builder.as_markup())
 
 @dp.message(Command("help"))
 async def help_handler(message: types.Message):
     help_text = (
         "❓ Kömək Menyusu\n\n"
-        "👮 Admin: /ban, /mute, /unmute, /warn, /unwarn, /stiker on|off\n"
-        "📊 Stat: /topmesaj, /my\n"
+        "👮 Admin: /ban, /unban, /mute, /unmute, /warn, /unwarn, /stiker on|off\n"
+        "📊 Stat: /top, /my\n"
         "🎲 Oyun: /dice, /slot, /basket, /dart, /futbol"
     )
-    await message.answer(help_text, parse_mode="Markdown")
+    await message.answer(help_text)
 
 # ==========================================================
-# 👮 ADMIN ƏMRLƏRİ
+# 👮 ADMIN BİLDİRİŞLƏRİ (BÜTÜN ƏMRLƏR)
 # ==========================================================
 @dp.message(Command("ban"))
 async def ban_handler(message: types.Message):
     if not await check_permissions(message): return
-    if not message.reply_to_message: return await message.answer("⚠️ Ban etmək üçün istifadəçini cavablayın.")
+    if not message.reply_to_message: return await message.answer("⚠️ Ban etmək üçün cavablayın.")
     try:
         await bot.ban_chat_member(message.chat.id, message.reply_to_message.from_user.id)
         await message.answer(f"🚫 {message.reply_to_message.from_user.first_name} qrupdan qovuldu.")
     except: await message.answer("❌ Xəta: Admini ban etmək olmaz.")
+
+@dp.message(Command("unban"))
+async def unban_handler(message: types.Message):
+    if not await check_permissions(message): return
+    if not message.reply_to_message: return await message.answer("⚠️ Blokdan çıxarmaq üçün cavablayın.")
+    try:
+        await bot.unban_chat_member(message.chat.id, message.reply_to_message.from_user.id, only_if_blocked=True)
+        await message.answer(f"✅ {message.reply_to_message.from_user.first_name} blokdan çıxarıldı.")
+    except: await message.answer("❌ Bu istifadəçi blokda deyil.")
 
 @dp.message(Command("mute"))
 async def mute_handler(message: types.Message):
@@ -122,19 +131,19 @@ async def warn_handler(message: types.Message):
         await bot.ban_chat_member(c_id, u_id)
         db_cursor.execute("UPDATE warns SET say = 0 WHERE chat_id = ? AND user_id = ?", (c_id, u_id))
         db_conn.commit()
-        await message.answer(f"🚫 {message.reply_to_message.from_user.first_name} 3 xəbərdarlığa görə qovuldu.")
-    else: await message.answer(f"⚠️ {message.reply_to_message.from_user.first_name} xəbərdarlıq aldı: {cnt}/3")
+        await message.answer(f"🚫 {message.reply_to_message.from_user.first_name} 3 xəbərdarlıq dolduğu üçün qovuldu.")
+    else: await message.answer(f"⚠️ {message.reply_to_message.from_user.first_name} xəbərdarlıq aldı! Cəmi: {cnt}/3")
 
 @dp.message(Command("unwarn"))
 async def unwarn_handler(message: types.Message):
     if not await check_permissions(message): return
-    if not message.reply_to_message: return await message.answer("⚠️ İstifadəçini cavablayın.")
+    if not message.reply_to_message: return await message.answer("⚠️ Xəbərdarlığı silmək üçün cavablayın.")
     db_cursor.execute("UPDATE warns SET say = 0 WHERE chat_id = ? AND user_id = ?", (message.chat.id, message.reply_to_message.from_user.id))
     db_conn.commit()
-    await message.answer("✅ Xəbərdarlıqlar təmizləndi.")
+    await message.answer(f"✅ {message.reply_to_message.from_user.first_name} xəbərdarlıqları təmizləndi.")
 
 # ==========================================================
-# 📊 REYTİNQ VƏ OYUNLAR
+# 📊 REYTİNQ VƏ OYUNLAR (SİLİNMƏYİB)
 # ==========================================================
 @dp.message(Command("my"))
 async def my_stats(message: types.Message):
@@ -142,15 +151,15 @@ async def my_stats(message: types.Message):
     db_cursor.execute("SELECT msg_sayi FROM scores WHERE user_id = ? AND chat_id = ? AND kateqoriya = 'ümumi'", (u_id, c_id))
     res = db_cursor.fetchone()
     say = res[0] if res else 0
-    await message.answer(f"👤 İstifadəçi: {message.from_user.first_name}\n📊 **Ümumi mesajınız:** {say}")
+    await message.answer(f"👤 İstifadəçi: {message.from_user.first_name}\n📊 Ümumi mesajınız: {say}")
 
-@dp.message(Command("topmesaj"))
+@dp.message(Command("top"))
 async def top_cmd(message: types.Message):
     if message.chat.type == "private": return
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="📅 Günlük", callback_data="top_günlük"), InlineKeyboardButton(text="📅 Həftəlik", callback_data="top_həftəlik"))
     builder.row(InlineKeyboardButton(text="📅 Aylıq", callback_data="top_aylıq"), InlineKeyboardButton(text="📊 Ümumi", callback_data="top_ümumi"))
-    await message.answer("📊 Reytinq Menyusu", reply_markup=builder.as_markup())
+    await message.answer("📊 Qrupunuzda ən çox aktiv olanlar : ", reply_markup=builder.as_markup())
 
 @dp.callback_query(F.data.startswith("top_"))
 async def process_top(callback: types.CallbackQuery):
@@ -170,22 +179,20 @@ async def games_handler(message: types.Message):
     await message.answer_dice(emoji=emojis.get(cmd, "🎲"))
 
 # ==========================================================
-# 🛡️ STİKER KOMANDASI (YALNIZ OWNER VƏ CREATOR)
+# 🛡️ STİKER KOMANDASI (SİLİNMƏYİB)
 # ==========================================================
 @dp.message(Command("stiker"))
 async def stiker_settings(message: types.Message, command: CommandObject):
     user_member = await bot.get_chat_member(message.chat.id, message.from_user.id)
-    # Yalnız Qurucu (Creator) və Bot Sahibi (Owner) dəyişə bilər
     if user_member.status != "creator" and message.from_user.id != OWNER_ID:
         return await message.answer("⚠️ Bu tənzimləməni yalnız qrup sahibi dəyişə bilər!")
-    
     val = 1 if command.args == "off" else 0
     db_cursor.execute("INSERT OR REPLACE INTO settings (chat_id, stiker_bloku) VALUES (?, ?)", (message.chat.id, val))
     db_conn.commit()
-    await message.answer("🚫 Stiker və Gif bloku aktiv edildi." if val else "🔓 Stiker və gif bloku deaktiv edildi.")
+    await message.answer("🚫 Stiker və gif bloku aktiv eddi." if val else "🔓 Stiker və gif bloku deaktiv edildi.")
 
 # ==========================================================
-# 🛡️ LİNK / STİKER SİLMƏ VƏ SAYĞAC
+# 🛡️ GLOBAL HANDLER (LİNK SİLMƏ + BİLDİRİŞ + SAYĞAC)
 # ==========================================================
 @dp.message()
 async def global_handler(message: types.Message):
@@ -194,14 +201,24 @@ async def global_handler(message: types.Message):
     user_member = await bot.get_chat_member(c_id, u_id)
     is_admin = user_member.status in ("administrator", "creator") or u_id == OWNER_ID
 
-    # 1. LİNK SİLMƏ
-    if not is_admin and message.entities:
-        for entity in message.entities:
-            if entity.type in ["url", "text_link"] or (message.text and ("t.me/" in message.text or "http" in message.text)):
-                try: return await message.delete()
-                except: pass
+    # 1. LİNK SİLMƏ BİLDİRİŞİ İLƏ
+    if not is_admin:
+        has_link = False
+        if message.entities:
+            for e in message.entities:
+                if e.type in ["url", "text_link"]: has_link = True
+        if not has_link and message.text and ("t.me/" in message.text or "http" in message.text):
+            has_link = True
+            
+        if has_link:
+            try:
+                await message.delete()
+                mention = f"[{message.from_user.first_name}](tg://user?id={u_id})"
+                await message.answer(f"⚠️ Hey {mention}, qrupda link paylaşmaq qadağandır!", parse_mode="Markdown")
+                return
+            except: pass
 
-    # 2. STİKER VƏ GİF SİLMƏ (ƏVVƏLKİ KİMİ STABİL)
+    # 2. STİKER VƏ GİF SİLMƏ
     db_cursor.execute("SELECT stiker_bloku FROM settings WHERE chat_id = ?", (c_id,))
     s = db_cursor.fetchone()
     if s and s[0] == 1 and not is_admin:
@@ -209,7 +226,7 @@ async def global_handler(message: types.Message):
             try: return await message.delete()
             except: pass
 
-    # 3. SAYĞAC VƏ MƏLUMAT YENİLƏMƏ
+    # 3. SAYĞAC
     db_cursor.execute("INSERT OR REPLACE INTO user_info VALUES (?, ?)", (u_id, message.from_user.first_name))
     if not (message.text and message.text.startswith("/")):
         for k in ["günlük", "həftəlik", "aylıq", "ümumi"]:
@@ -218,7 +235,7 @@ async def global_handler(message: types.Message):
         db_conn.commit()
 
 # ==========================================================
-# 🕒 AVTOMATİK SIFIRLAMA TAYMERİ
+# TAYMER
 # ==========================================================
 async def reset_timer():
     while True:
