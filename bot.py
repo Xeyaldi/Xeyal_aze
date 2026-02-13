@@ -98,7 +98,7 @@ async def start(message: types.Message):
     kb.row(types.InlineKeyboardButton(text="👨‍💻 Developer", url="tg://user?id=8024893255"))
 
     text = (
-        "🤖 HT-Security Moderation Bot\n\n"
+        "🤖 Flower-Security Qrup idarə Botu\n\n"
         "Bu bot Telegram qrupları üçün hazırlanmış tam təhlükəsizlik və idarəetmə botudur.\n\n"
         "🛡 İmkanlar:\n"
         "• Stiker / GIF / Video-note avtomatik nəzarət\n"
