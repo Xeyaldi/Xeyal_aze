@@ -1,15 +1,11 @@
 import asyncio
 import os
 import logging
+from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command, CommandObject
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.types import (
-    ChatPermissions, 
-    InlineKeyboardButton, 
-    Message,
-    BotCommand
-)
+from aiogram.types import ChatPermissions, BotCommand, InlineKeyboardButton, CallbackQuery
 
 # --- LOGLAMA ---
 logging.basicConfig(level=logging.INFO)
@@ -21,17 +17,20 @@ API_TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# --- MƏLUMAT BAZALARI (SIFIR İXTİSAR) ---
+# Professional Məlumat Bazası (Yaddaşda saxlanılan)
 fed_db = {}           
 group_feds = {}       
 group_settings = {}   
 custom_filters = {} 
-user_warns = {}
+welcome_messages = {}
 
-# Söyüş siyahısı
-BAD_WORDS = ["söyüş1", "söyüş2", "qehbe", "bic", "sq", "amciq", "gotveran", "peyser", "sik", "daşaq", "siktir", "gicdıllaq", "atdıran", "fahişə", "dalbayob"] 
+# Azərbaycan dili söyüş siyahısı (Maksimum genişlikdə)
+BAD_WORDS = [
+    "söyüş1", "söyüş2", "qehbe", "bic", "sq", "amciq", "gotveran", 
+    "peyser", "sik", "daşaq", "siktir", "gicdıllaq", "atdıran", "fahişə", "dalbayob"
+] 
 
-# --- ADMİN YOXLAMA ---
+# --- KÖMƏKÇİ FUNKSİYA: ADMİN YOXLAMA ---
 async def check_admin_status(chat_id: int, user_id: int):
     if user_id == OWNER_ID: return "owner"
     try:
@@ -39,137 +38,189 @@ async def check_admin_status(chat_id: int, user_id: int):
         if member.status in ["administrator", "creator"]:
             return "admin"
         return "user"
-    except:
+    except Exception:
         return "user"
 
-# --- BUTONLAR ---
-def get_main_btns():
+# --- START MESAJI (BÜTÜN BUTONLAR VƏ MƏLUMATLAR) ---
+@dp.message(Command("start"), F.chat.type == "private")
+async def cmd_start(message: types.Message):
     builder = InlineKeyboardBuilder()
+    
+    # Bütün butonlar (Heç biri silinmədi)
     builder.row(InlineKeyboardButton(text="Kömək Menyu 📚", callback_data="help_callback"))
-    builder.row(InlineKeyboardButton(text="Məni Qrupa Əlavə Et ➕", url=f"https://t.me/Miss_Flower_bot?startgroup=true"))
+    builder.row(InlineKeyboardButton(text="Məni Qrupa Əlavə Et ➕", url=f"https://t.me/{(await bot.get_me()).username}?startgroup=true"))
     builder.row(
         InlineKeyboardButton(text="Kanal 📢", url="https://t.me/ht_bots"),
         InlineKeyboardButton(text="Dəstək 👥", url="https://t.me/ht_bots_chat")
     )
     builder.row(InlineKeyboardButton(text="👨‍💻 Developer", url="https://t.me/kullaniciadidi"))
-    return builder.as_markup()
-
-# --- 1. MEDIA TUTUCU (HƏR ŞEYDƏN ƏVVƏL BU İŞLƏYİR) ---
-@dp.message(F.sticker | F.animation | F.video_note)
-async def media_blocker(message: Message):
-    chat_id = message.chat.id
-    status = await check_admin_status(chat_id, message.from_user.id)
     
-    # Əgər stiker bloku aktivdirsə və yazan admin deyilsə - DƏRHAL SİL
-    if group_settings.get(chat_id, {}).get("sticker_block") == True and status == "user":
-        try:
-            await message.delete()
-        except:
-            pass
-
-# --- 2. KOMANDALAR (TAM VERSİYA) ---
-
-@dp.message(Command("start"))
-async def cmd_start(message: Message):
-    await message.answer("🤖 Flower Premium Botuna Xoş Gəldiniz!\n\nMən qruplarınızı qorumaq üçün buradayam.", reply_markup=get_main_btns())
-
-@dp.message(Command("help"))
-async def cmd_help(message: Message):
-    help_text = (
-        "📜 Botun Geniş Əmrləri:\n\n"
-        "🛡 Federasiya:\n"
-        "• /newfed [ad] - Yeni Fed yaradır\n"
-        "• /joinfed [ID] - Qrupu Fed-ə bağlayır\n"
-        "• /gfban - Fed banı\n"
-        "• /ggroupfed - Fed məlumatı\n\n"
-        "⚙️ İdarəetmə:\n"
-        "• /admin [rütbə] - Admin et (Reply)\n"
-        "• /unadmin - Adminliyi al\n"
-        "• /ban - Qov\n"
-        "• /mute - Səssizə al\n"
-        "• /purge - Təmizlə\n\n"
-        "🔍 Filtrlər:\n"
-        "• /filter [söz] - Xüsusi cavab\n"
-        "• /stop [söz] - Filtri sil\n"
-        "• /stiker off - Stikerləri bağla\n"
-        "• /stiker on - Stikerləri aç\n\n"
-        "🔐 Təhlükəsizlik:\n"
-        "• /lock - Qrupu bağla\n"
-        "• /unlock - Qrupu aç\n"
-        "• /info - ID məlumatı\n"
-        "• /reload - Yenilə"
+    bot_info = (
+        "🤖 **HT-Security Premium Botuna Xoş Gəldiniz!**\n\n"
+        "Mən qruplarınızı söyüşlərdən, reklamlardan və arzuolunmaz şəxslərdən qorumaq üçün yaradılmış "
+        "peşəkar idarəetmə botuyam. Rose və GroupHelp funksiyaları ilə tam təchiz olunmuşam.\n\n"
+        "✨ **Mənimlə nə edə bilərsiniz?**\n"
+        "• Söyüş və Linkləri avtomatik silirəm.\n"
+        "• Qrupda xüsusi filtrlər yaradıram.\n"
+        "• Federasiya sistemi ilə qlobal qoruma təmin edirəm.\n"
+        "• Admin rütbələrini (Custom Title) idarə edirəm.\n\n"
+        "Aşağıdakı düyməyə basaraq bütün əmrlərimi görə bilərsiniz 👇"
     )
-    await message.answer(help_text, reply_markup=get_main_btns())
+    await message.answer(bot_info, reply_markup=builder.as_markup())
 
-@dp.message(Command("stiker"))
-async def cmd_stiker(message: Message, command: CommandObject):
-    if await check_admin_status(message.chat.id, message.from_user.id) == "user": return
-    if not command.args: return
-    choice = command.args.lower()
-    if choice == "off":
-        group_settings[message.chat.id] = {"sticker_block": True}
-        await message.answer("🚫 Stiker və Gif bloku aktiv edildi. Artıq silinəcəklər.")
-    elif choice == "on":
-        group_settings[message.chat.id] = {"sticker_block": False}
-        await message.answer("✅ Stiker bloku deaktiv edildi.")
+# --- CALLBACK HANDLER ---
+@dp.callback_query(F.data == "help_callback")
+async def help_callback(callback: CallbackQuery):
+    await callback.answer("Kömək menyusu üçün çata /help yazın.", show_alert=True)
 
-@dp.message(Command("reload"))
-async def cmd_reload(message: Message):
-    if await check_admin_status(message.chat.id, message.from_user.id) == "user": return
-    await message.answer("✅ Sazlamalar uğurla yeniləndi!")
+# --- HELP MESAJI ---
+@dp.message(Command("help"))
+async def cmd_help(message: types.Message):
+    help_text = (
+        "📜 **Botun Geniş Əmrləri:**\n\n"
+        "🛡 **Federasiya:**\n"
+        "• `/newfed [ad]` - Yeni Fed yaradır\n"
+        "• `/joinfed [ID]` - Qrupu Fed-ə bağlayır\n"
+        "• `/gfban` - Fed banı (Reply)\n"
+        "• `/ggroupfed` - Qrupun Fed məlumatı\n\n"
+        "⚙️ **İdarəetmə:**\n"
+        "• `/admin [rütbə]` - Admin rütbəsi verir (Reply)\n"
+        "• `/unadmin` - Adminliyi alır\n"
+        "• `/ban` / `/unban` - Qovur/Açır\n"
+        "• `/mute` / `/unmute` - Səssizə alır\n"
+        "• `/purge` - Mesajları toplu silir (Reply-dan aşağı)\n\n"
+        "🔍 **Filtrlər:**\n"
+        "• `/filter [söz]` - Xüsusi cavab (Reply)\n"
+        "• `/stop [söz]` - Filtri silir\n"
+        "• `/stiker off/on` - Stikerləri bağlayır\n\n"
+        "🔐 **Təhlükəsizlik:**\n"
+        "• `/lock` / `/unlock` - Qrupu bağla/aç\n"
+        "• `/info` - İstifadəçi ID məlumatı"
+    )
+    await message.answer(help_text)
 
-@dp.message(Command("admin"))
-async def cmd_promote(message: Message, command: CommandObject):
+# --- PURGE SİSTEMİ ---
+@dp.message(Command("purge"), F.chat.type.in_({"group", "supergroup"}))
+async def cmd_purge(message: types.Message):
     if await check_admin_status(message.chat.id, message.from_user.id) == "user": return
-    if not message.reply_to_message: return await message.answer("İstifadəçini reply edin!")
-    title = command.args if command.args else "Admin"
-    try:
-        await bot.promote_chat_member(message.chat.id, message.reply_to_message.from_user.id, can_delete_messages=True, can_restrict_members=True)
-        await bot.set_chat_administrator_custom_title(message.chat.id, message.reply_to_message.from_user.id, title)
-        await message.answer(f"✅ {message.reply_to_message.from_user.first_name} indi {title}!")
-    except: await message.answer("❌ Xəta!")
-
-@dp.message(Command("purge"))
-async def cmd_purge(message: Message):
-    if await check_admin_status(message.chat.id, message.from_user.id) == "user": return
-    if not message.reply_to_message: return
-    for i in range(message.reply_to_message.message_id, message.message_id + 1):
+    if not message.reply_to_message:
+        return await message.answer("Silmək üçün bir mesajı reply edin.")
+    msg_id = message.reply_to_message.message_id
+    curr_id = message.message_id
+    for i in range(msg_id, curr_id + 1):
         try: await bot.delete_message(message.chat.id, i)
         except: continue
-    await message.answer("✅ Təmizləndi.")
+    await message.answer("✅ Mesajlar təmizləndi.")
 
+# --- ADMİN VƏ RÜTBƏ SİSTEMİ ---
+@dp.message(Command("admin"), F.chat.type.in_({"group", "supergroup"}))
+async def cmd_promote(message: types.Message, command: CommandObject):
+    if await check_admin_status(message.chat.id, message.from_user.id) == "user": return
+    if not message.reply_to_message: return await message.answer("İstifadəçini reply edin.")
+    
+    target_id = message.reply_to_message.from_user.id
+    target_name = message.reply_to_message.from_user.first_name
+    
+    if await check_admin_status(message.chat.id, target_id) != "user":
+        return await message.answer(f"❗ {target_name} artıq bu qrupda admindir.")
+
+    title = command.args if command.args else "Admin"
+    try:
+        await bot.promote_chat_member(message.chat.id, target_id, can_delete_messages=True, can_restrict_members=True, can_pin_messages=True, can_invite_users=True)
+        await bot.set_chat_administrator_custom_title(message.chat.id, target_id, title)
+        await message.answer(f"✅ {target_name} indi **{title}**!")
+    except: await message.answer("❌ Yetgi xətası.")
+
+@dp.message(Command("unadmin"), F.chat.type.in_({"group", "supergroup"}))
+async def cmd_demote(message: types.Message):
+    if await check_admin_status(message.chat.id, message.from_user.id) == "user": return
+    if not message.reply_to_message: return
+    try:
+        await bot.promote_chat_member(message.chat.id, message.reply_to_message.from_user.id, can_delete_messages=False, can_restrict_members=False)
+        await message.answer(f"🗑 {message.reply_to_message.from_user.first_name} adminlikdən çıxarıldı.")
+    except: pass
+
+# --- GLOBAL HANDLER (SÖYÜŞ, LİNK, FİLTR, STİKER) ---
+@dp.message(F.chat.type.in_({"group", "supergroup"}))
+async def main_handler(message: types.Message):
+    if not message.text and not message.sticker: return
+    user_status = await check_admin_status(message.chat.id, message.from_user.id)
+    chat_id = message.chat.id
+
+    if message.text:
+        text_lower = message.text.lower()
+        # 1. Söyüş Filtri
+        if any(word in text_lower for word in BAD_WORDS):
+            if user_status == "user":
+                await message.delete()
+                return await message.answer(f"⚠️ {message.from_user.first_name}, xahiş olunur qrupda səviyyəli danışın!")
+        # 2. Link Filtri
+        if ("t.me/" in text_lower or "http" in text_lower) and user_status == "user":
+            await message.delete()
+            return
+        # 3. Custom Filter
+        if chat_id in custom_filters:
+            for kw, rep in custom_filters[chat_id].items():
+                if kw in text_lower: return await message.reply(rep)
+
+    # 4. Stiker Bloku
+    if (message.sticker or message.animation) and group_settings.get(chat_id, {}).get("sticker_block"):
+        if user_status == "user": await message.delete()
+
+# --- MUTE, LOCK, FILTER ---
+@dp.message(Command("mute"))
+async def cmd_mute(message: types.Message):
+    if await check_admin_status(message.chat.id, message.from_user.id) == "user": return
+    if not message.reply_to_message: return
+    await bot.restrict_chat_member(message.chat.id, message.reply_to_message.from_user.id, permissions=ChatPermissions(can_send_messages=False))
+    await message.answer(f"🔇 {message.reply_to_message.from_user.first_name} sussuruldu.")
+
+@dp.message(Command("unmute"))
+async def cmd_unmute(message: types.Message):
+    if await check_admin_status(message.chat.id, message.from_user.id) == "user": return
+    if not message.reply_to_message: return
+    await bot.restrict_chat_member(message.chat.id, message.reply_to_message.from_user.id, permissions=ChatPermissions(can_send_messages=True, can_send_other_messages=True))
+    await message.answer(f"🔊 {message.reply_to_message.from_user.first_name} artıq yaza bilər.")
+
+@dp.message(Command("lock"))
+async def cmd_lock(message: types.Message):
+    if await check_admin_status(message.chat.id, message.from_user.id) == "user": return
+    await bot.set_chat_permissions(message.chat.id, ChatPermissions(can_send_messages=False))
+    await message.answer("🔒 Qrup bağlandı.")
+
+@dp.message(Command("unlock"))
+async def cmd_unlock(message: types.Message):
+    if await check_admin_status(message.chat.id, message.from_user.id) == "user": return
+    await bot.set_chat_permissions(message.chat.id, ChatPermissions(can_send_messages=True, can_send_other_messages=True))
+    await message.answer("🔓 Qrup açıldı.")
+
+@dp.message(Command("filter"))
+async def cmd_filter(message: types.Message, command: CommandObject):
+    if await check_admin_status(message.chat.id, message.from_user.id) == "user": return
+    if not message.reply_to_message or not command.args: return
+    kw = command.args.lower()
+    if message.chat.id not in custom_filters: custom_filters[message.chat.id] = {}
+    custom_filters[message.chat.id][kw] = message.reply_to_message.text
+    await message.answer(f"✅ '{kw}' filtri yaradıldı.")
+
+@dp.message(Command("stop"))
+async def cmd_stop(message: types.Message, command: CommandObject):
+    if await check_admin_status(message.chat.id, message.from_user.id) == "user": return
+    if not command.args: return
+    kw = command.args.lower()
+    if message.chat.id in custom_filters and kw in custom_filters[message.chat.id]:
+        del custom_filters[message.chat.id][kw]
+        await message.answer(f"❌ '{kw}' filtri silindi.")
+
+# --- FEDERASİYA ---
 @dp.message(Command("newfed"))
-async def cmd_newfed(message: Message, command: CommandObject):
+async def cmd_newfed(message: types.Message, command: CommandObject):
     if not command.args: return
     fed_id = str(message.from_user.id)[:5]
     fed_db[fed_id] = {"name": command.args, "owner": message.from_user.id}
-    await message.answer(f"✅ Fed yaradıldı: {command.args}\nID: {fed_id}")
-
-# --- 3. MƏTN TUTUCU (SÖYÜŞ VƏ LİNK) ---
-@dp.message(F.text)
-async def text_handler(message: Message):
-    if message.chat.type not in ["group", "supergroup"]: return
-    status = await check_admin_status(message.chat.id, message.from_user.id)
-    text_lower = message.text.lower()
-
-    if status == "user":
-        # Söyüş və Link
-        if any(w in text_lower for w in BAD_WORDS) or "t.me/" in text_lower or "http" in text_lower:
-            try: await message.delete()
-            except: pass
-            return
-
-    # Filter
-    if message.chat.id in custom_filters:
-        for k, v in custom_filters[message.chat.id].items():
-            if k in text_lower: return await message.reply(v)
+    await message.answer(f"✅ Yeni Fed yaradıldı: {command.args}\nID: `{fed_id}`")
 
 async def main():
-    await bot.set_my_commands([
-        BotCommand(command="start", description="Başlat"),
-        BotCommand(command="stiker", description="Stiker bloku"),
-        BotCommand(command="reload", description="Yenilə")
-    ])
     await dp.start_polling(bot)
 
 if __name__ == '__main__':
