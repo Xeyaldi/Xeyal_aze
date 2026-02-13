@@ -41,17 +41,24 @@ def init_db():
 db_conn, db_cursor = init_db()
 
 # ==========================================================
-# 3. YETKİ YOXLANIŞI
+# 3. YETKİ YOXLANIŞI (ROSE STYLE)
 # ==========================================================
 async def check_permissions(message: types.Message):
     user_member = await bot.get_chat_member(message.chat.id, message.from_user.id)
     if user_member.status not in ("administrator", "creator") and message.from_user.id != OWNER_ID:
-        await message.answer("⚠️ Sizin bu əmri istifadə etmək üçün icazəniz yoxdur!")
+        await message.answer("Sizin bu komandanı icra etmək üçün lazımi icazəniz yoxdur.")
+        return False
+    return True
+
+async def check_bot_permissions(message: types.Message):
+    bot_member = await bot.get_chat_member(message.chat.id, (await bot.get_me()).id)
+    if bot_member.status != "administrator":
+        await message.answer("Səhv: Mənim bu istifadəçini idarə etmək üçün kifayət qədər səlahiyyətim yoxdur.")
         return False
     return True
 
 # ==========================================================
-# 4. START VƏ HELP (ULDUZSUZ VƏ SƏLİQƏLİ)
+# 4. START VƏ HELP
 # ==========================================================
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
@@ -82,21 +89,23 @@ async def help_handler(message: types.Message):
     await message.answer(help_text)
 
 # ==========================================================
-# 5. ADMIN ƏMRLƏRİ (REPLYSİZLİK VƏ ULDUZSUZ)
+# 5. ADMIN ƏMRLƏRİ
 # ==========================================================
 @dp.message(Command("ban"))
 async def ban_handler(message: types.Message):
     if not await check_permissions(message): return
-    if not message.reply_to_message: return await message.answer("⚠️ Kimdən danışdığınızı bilmirəm.")
+    if not message.reply_to_message: return await message.answer("İstifadəçi təyin edilməyib. Kimin haqqında danışdığınızı bilmirəm.")
+    if not await check_bot_permissions(message): return
     try:
         await bot.ban_chat_member(message.chat.id, message.reply_to_message.from_user.id)
         await message.answer(f"🚫 {message.reply_to_message.from_user.first_name} qrupdan qovuldu.")
-    except: await message.answer("❌ Xəta: Bu şəxsi ban etmək mümkün deyil.")
+    except: await message.answer("Səhv: Mənim bu istifadəçini idarə etmək üçün kifayət qədər səlahiyyətim yoxdur.")
 
 @dp.message(Command("unban"))
 async def unban_handler(message: types.Message):
     if not await check_permissions(message): return
-    if not message.reply_to_message: return await message.answer("⚠️ Kimdən danışdığınızı bilmirəm.")
+    if not message.reply_to_message: return await message.answer("İstifadəçi təyin edilməyib. Kimin haqqında danışdığınızı bilmirəm.")
+    if not await check_bot_permissions(message): return
     try:
         await bot.unban_chat_member(message.chat.id, message.reply_to_message.from_user.id, only_if_blocked=True)
         await message.answer(f"✅ {message.reply_to_message.from_user.first_name} blokdan çıxarıldı.")
@@ -105,7 +114,8 @@ async def unban_handler(message: types.Message):
 @dp.message(Command("mute"))
 async def mute_handler(message: types.Message):
     if not await check_permissions(message): return
-    if not message.reply_to_message: return await message.answer("⚠️ Kimdən danışdığınızı bilmirəm.")
+    if not message.reply_to_message: return await message.answer("İstifadəçi təyin edilməyib. Kimin haqqında danışdığınızı bilmirəm.")
+    if not await check_bot_permissions(message): return
     try:
         await bot.restrict_chat_member(message.chat.id, message.reply_to_message.from_user.id, permissions=ChatPermissions(can_send_messages=False))
         await message.answer(f"🔇 {message.reply_to_message.from_user.first_name} səssizə alındı.")
@@ -114,16 +124,38 @@ async def mute_handler(message: types.Message):
 @dp.message(Command("unmute"))
 async def unmute_handler(message: types.Message):
     if not await check_permissions(message): return
-    if not message.reply_to_message: return await message.answer("⚠️ Kimdən danışdığınızı bilmirəm.")
+    if not message.reply_to_message: return await message.answer("İstifadəçi təyin edilməyib. Kimin haqqında danışdığınızı bilmirəm.")
+    if not await check_bot_permissions(message): return
     try:
         await bot.restrict_chat_member(message.chat.id, message.reply_to_message.from_user.id, permissions=ChatPermissions(can_send_messages=True, can_send_media_messages=True, can_send_other_messages=True))
         await message.answer(f"🔊 {message.reply_to_message.from_user.first_name} səsi açıldı.")
     except: pass
 
+@dp.message(Command("admin"))
+async def admin_handler(message: types.Message):
+    if not await check_permissions(message): return
+    if not message.reply_to_message: return await message.answer("İstifadəçi təyin edilməyib. Kimin haqqında danışdığınızı bilmirəm.")
+    if not await check_bot_permissions(message): return
+    try:
+        await bot.promote_chat_member(message.chat.id, message.reply_to_message.from_user.id, can_manage_chat=True, can_delete_messages=True, can_restrict_members=True, can_promote_members=True)
+        await message.answer(f"Uğurlu: {message.reply_to_message.from_user.first_name} admin təyin edildi.")
+    except: await message.answer("Səhv: Mənim bu istifadəçini idarə etmək üçün kifayət qədər səlahiyyətim yoxdur.")
+
+@dp.message(Command("unadmin"))
+async def unadmin_handler(message: types.Message):
+    if not await check_permissions(message): return
+    if not message.reply_to_message: return await message.answer("İstifadəçi təyin edilməyib. Kimin haqqında danışdığınızı bilmirəm.")
+    if not await check_bot_permissions(message): return
+    try:
+        await bot.promote_chat_member(message.chat.id, message.reply_to_message.from_user.id, can_change_info=False, can_delete_messages=False, can_invite_users=False, can_restrict_members=False, can_pin_messages=False, can_promote_members=False, can_manage_chat=False)
+        await message.answer(f"Uğurlu: {message.reply_to_message.from_user.first_name} adminlikdən çıxarıldı.")
+    except: await message.answer("Səhv: Mənim bu istifadəçini idarə etmək üçün kifayət qədər səlahiyyətim yoxdur.")
+
 @dp.message(Command("warn"))
 async def warn_handler(message: types.Message):
     if not await check_permissions(message): return
-    if not message.reply_to_message: return await message.answer("⚠️ Kimdən danışdığınızı bilmirəm.")
+    if not message.reply_to_message: return await message.answer("İstifadəçi təyin edilməyib. Kimin haqqında danışdığınızı bilmirəm.")
+    if not await check_bot_permissions(message): return
     u_id, c_id = message.reply_to_message.from_user.id, message.chat.id
     db_cursor.execute("INSERT OR IGNORE INTO warns VALUES (?, ?, 0)", (c_id, u_id))
     db_cursor.execute("UPDATE warns SET say = say + 1 WHERE chat_id = ? AND user_id = ?", (c_id, u_id))
@@ -140,13 +172,13 @@ async def warn_handler(message: types.Message):
 @dp.message(Command("unwarn"))
 async def unwarn_handler(message: types.Message):
     if not await check_permissions(message): return
-    if not message.reply_to_message: return await message.answer("⚠️ Kimdən danışdığınızı bilmirəm.")
+    if not message.reply_to_message: return await message.answer("İstifadəçi təyin edilməyib. Kimin haqqında danışdığınızı bilmirəm.")
     db_cursor.execute("UPDATE warns SET say = 0 WHERE chat_id = ? AND user_id = ?", (message.chat.id, message.reply_to_message.from_user.id))
     db_conn.commit()
     await message.answer(f"✅ {message.reply_to_message.from_user.first_name} xəbərdarlıqları təmizləndi.")
 
 # ==========================================================
-# 6. /TOP REYTİNQ (ŞƏKİLDƏKİ KİMİ, ULDUZSUZ)
+# 6. /TOP REYTİNQ
 # ==========================================================
 @dp.message(Command("top"))
 async def top_menu(message: types.Message):
@@ -201,7 +233,7 @@ async def back_to_top(callback: types.CallbackQuery):
     await callback.message.edit_text("📊 Mesaj sayğacı\n\n👥 Sıralama növünü seçin:", reply_markup=builder.as_markup())
 
 # ==========================================================
-# 7. DİGƏR KOMANDALAR (/MY, /STIKER, OYUNLAR)
+# 7. DİGƏR KOMANDALAR
 # ==========================================================
 @dp.message(Command("my"))
 async def my_stats(message: types.Message):
@@ -246,7 +278,7 @@ async def global_handler(message: types.Message):
                 return await message.answer(f"⚠️ {mention}, zəhmət olmasa qrupda normal danışın!", parse_mode="Markdown")
             except: pass
 
-    # LİNK QORUMASI (Admin deyilsə)
+    # LİNK QORUMASI
     if not is_admin:
         has_link = False
         if message.entities:
@@ -260,7 +292,7 @@ async def global_handler(message: types.Message):
                 return await message.answer(f"⚠️ {mention}, qrupda link paylaşmaq qadağandır!", parse_mode="Markdown")
             except: pass
 
-    # STİKER VƏ GİF (HAMI ÜÇÜN)
+    # STİKER VƏ GİF
     db_cursor.execute("SELECT stiker_bloku FROM settings WHERE chat_id = ?", (c_id,))
     s = db_cursor.fetchone()
     if s and s[0] == 1:
