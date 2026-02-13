@@ -55,7 +55,7 @@ async def cmd_start(message: types.Message):
     builder.row(InlineKeyboardButton(text="👨‍💻 Developer", url="https://t.me/kullaniciadidi"))
     
     bot_info = (
-        "🤖 **HT-Security Premium Botuna Xoş Gəldiniz!**\n\n"
+        "🤖 Flower-Security Premium Botuna Xoş Gəldiniz!\n\n"
         "Mən qruplarınızı söyüşlərdən, reklamlardan və arzuolunmaz şəxslərdən qorumaq üçün yaradılmış "
         "peşəkar idarəetmə botuyam. Rose və GroupHelp funksiyaları ilə tam təchiz olunmuşam.\n\n"
         "✨ **Mənimlə nə edə bilərsiniz?**\n"
