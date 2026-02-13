@@ -42,43 +42,20 @@ async def check_admin_status(chat_id: int, user_id: int):
     except:
         return "user"
 
-# --- 🛑 BAYAQKI KİMİ SİLƏN HİSSƏ (BUNA TOXUNMA) ---
-# Bu handler hər şeyi tutub süzgəcdən keçirir
-@dp.message()
-async def main_handler(message: Message):
-    if not message.chat or message.chat.type not in ["group", "supergroup"]:
-        return
-
+# --- 🛑 STİKER VƏ GİF SİLMƏNİ DÜZƏLDƏN HİSSƏ ---
+# Bu hissə botun hər şeyi görməsini təmin edir
+@dp.message(lambda message: message.sticker or message.animation or message.video_note)
+async def media_deleter(message: Message):
     chat_id = message.chat.id
     status = await check_admin_status(chat_id, message.from_user.id)
     
-    # 1. STİKER VƏ GİF SİLMƏ (Əsas Problem Burda İdi)
-    if message.sticker or message.animation or message.video_note:
-        if group_settings.get(chat_id, {}).get("sticker_block") == True:
-            if status == "user":
-                try:
-                    await bot.delete_message(chat_id, message.message_id)
-                    return # Silindisə dayansın
-                except:
-                    pass
-
-    # 2. SÖYÜŞ VƏ LİNK SİLMƏ
-    if message.text:
-        text_lower = message.text.lower()
+    # Əgər qrupda stiker bloku aktivdirsə (/stiker off) və yazan admin deyilsə
+    if group_settings.get(chat_id, {}).get("sticker_block") == True:
         if status == "user":
-            if any(w in text_lower for w in BAD_WORDS) or "t.me/" in text_lower or "http" in text_lower:
-                try:
-                    await message.delete()
-                    return
-                except:
-                    pass
-        
-        # 3. FİLTERLƏR
-        if chat_id in custom_filters:
-            for k, v in custom_filters[chat_id].items():
-                if k in text_lower:
-                    await message.reply(v)
-                    return
+            try:
+                await bot.delete_message(chat_id, message.message_id)
+            except:
+                pass
 
 # --- KOMANDALAR (İXTİSARSIZ) ---
 
@@ -86,34 +63,45 @@ async def main_handler(message: Message):
 async def cmd_stiker(message: Message, command: CommandObject):
     if await check_admin_status(message.chat.id, message.from_user.id) == "user": return
     if not command.args:
-        return await message.answer("İstifadə: /stiker off və ya /stiker on")
+        return await message.answer("İstifadə: /stiker off (silmək üçün) və ya /stiker on")
     
     choice = command.args.lower()
     if choice == "off":
         group_settings[message.chat.id] = {"sticker_block": True}
-        await message.answer("🚫 Stiker və Gif bloku aktiv edildi.")
+        await message.answer("🚫 Stiker və Gif bloku aktiv edildi. Artıq dərhal silinəcəklər.")
     elif choice == "on":
         group_settings[message.chat.id] = {"sticker_block": False}
         await message.answer("✅ Stiker bloku deaktiv edildi.")
 
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
-    await message.answer("🤖 Flower Premium Botu İşləyir!")
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text="Kömək Menyu 📚", callback_data="help"))
+    builder.row(InlineKeyboardButton(text="Məni Qrupa Əlavə Et ➕", url=f"https://t.me/Miss_Flower_bot?startgroup=true"))
+    await message.answer("🤖 Flower Premium Botu Hazırdır!", reply_markup=builder.as_markup())
 
 @dp.message(Command("help"))
 async def cmd_help(message: Message):
-    await message.answer("📜 Əmrlər: /newfed, /admin, /purge, /filter, /stiker off/on, /lock")
+    help_text = (
+        "📜 Botun Geniş Əmrləri:\n\n"
+        "🛡 Federasiya: /newfed, /joinfed, /gfban, /ggroupfed\n"
+        "⚙️ İdarəetmə: /admin, /unadmin, /ban, /mute, /purge\n"
+        "🔍 Filtrlər: /filter, /stop, /stiker off/on\n"
+        "🔐 Təhlükəsizlik: /lock, /unlock, /info, /reload"
+    )
+    await message.answer(help_text)
 
 @dp.message(Command("admin"))
 async def cmd_promote(message: Message, command: CommandObject):
     if await check_admin_status(message.chat.id, message.from_user.id) == "user": return
-    if not message.reply_to_message: return
+    if not message.reply_to_message: return await message.answer("İstifadəçini reply edin!")
     title = command.args if command.args else "Admin"
     try:
-        await bot.promote_chat_member(message.chat.id, message.reply_to_message.from_user.id, can_delete_messages=True)
+        await bot.promote_chat_member(message.chat.id, message.reply_to_message.from_user.id, 
+            can_delete_messages=True, can_restrict_members=True, can_invite_users=True, can_pin_messages=True)
         await bot.set_chat_administrator_custom_title(message.chat.id, message.reply_to_message.from_user.id, title)
-        await message.answer(f"✅ {title} rütbəsi verildi.")
-    except: pass
+        await message.answer(f"✅ {message.reply_to_message.from_user.first_name} indi {title}!")
+    except: await message.answer("❌ Adminlik yetgisi verin.")
 
 @dp.message(Command("purge"))
 async def cmd_purge(message: Message):
@@ -122,18 +110,50 @@ async def cmd_purge(message: Message):
     for i in range(message.reply_to_message.message_id, message.message_id + 1):
         try: await bot.delete_message(message.chat.id, i)
         except: continue
+    await message.answer("✅ Təmizləndi.")
 
 @dp.message(Command("newfed"))
 async def cmd_newfed(message: Message, command: CommandObject):
     if not command.args: return
     fed_id = str(message.from_user.id)[:5]
     fed_db[fed_id] = {"name": command.args, "owner": message.from_user.id}
-    await message.answer(f"✅ Fed yaradıldı. ID: {fed_id}")
+    await message.answer(f"✅ Fed yaradıldı: {command.args}\nID: {fed_id}")
 
-# --- 🚀 BOTUN BAŞLADILMASI ---
+@dp.message(Command("reload"))
+async def cmd_reload(message: Message):
+    if await check_admin_status(message.chat.id, message.from_user.id) == "user": return
+    await message.answer("✅ Sazlamalar yeniləndi!")
+
+# --- MƏTN YOXLAMALARI (SÖYÜŞ VƏ FİLTER) ---
+@dp.message(F.text)
+async def text_handler(message: Message):
+    if not message.chat or message.chat.type not in ["group", "supergroup"]: return
+    status = await check_admin_status(message.chat.id, message.from_user.id)
+    text_lower = message.text.lower()
+
+    if status == "user":
+        # Söyüş və Link
+        if any(w in text_lower for w in BAD_WORDS) or "t.me/" in text_lower or "http" in text_lower:
+            try: await message.delete()
+            except: pass
+            return
+
+    # Filter
+    if message.chat.id in custom_filters:
+        for k, v in custom_filters[message.chat.id].items():
+            if k in text_lower: return await message.reply(v)
+
+# --- BOTUN BAŞLADILMASI ---
 async def main():
-    # Bu hissə botun qrupda hər şeyi görməsini təmin edir (Privacy ayarından asılı olmayaraq)
-    await dp.start_polling(bot, allowed_updates=["message", "chat_member", "callback_query"])
+    await bot.set_my_commands([
+        BotCommand(command="start", description="Başlat"),
+        BotCommand(command="stiker", description="Stiker bloku"),
+        BotCommand(command="help", description="Kömək"),
+        BotCommand(command="reload", description="Yenilə")
+    ])
+    
+    # 🛑 BU HİSSƏ MÜTLƏQDİR:
+    await dp.start_polling(bot, allowed_updates=["message", "chat_member", "callback_query", "edited_message"])
 
 if __name__ == '__main__':
     asyncio.run(main())
