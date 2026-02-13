@@ -11,13 +11,13 @@ API_TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# Yaddaş (Database)
+# Yaddaş sistemi (RAM)
 fed_db = {}           
 group_feds = {}       
 group_settings = {}   
 BAD_WORDS = ["söyüş1", "söyüş2"] 
 
-# --- KÖMƏKÇİ FUNKSİYA: Admin Yoxlaması ---
+# --- KÖMƏKÇİ FUNKSİYA ---
 async def is_admin(chat_id, user_id):
     if user_id == OWNER_ID: return True
     try:
@@ -25,7 +25,7 @@ async def is_admin(chat_id, user_id):
         return member.status in ["administrator", "creator"]
     except: return False
 
-# --- START VƏ BUTONLAR ---
+# --- START MESAJI ---
 @dp.message(Command("start"))
 async def start(message: types.Message):
     builder = InlineKeyboardBuilder()
@@ -36,93 +36,88 @@ async def start(message: types.Message):
     )
     builder.row(types.InlineKeyboardButton(text="👨‍💻 Developer", url="https://t.me/kullaniciadidi"))
     
-    await message.answer(
-        f"🤖 **HT-Security Premium Bot**\n\n"
-        f"👤 **Sahib:** @kullaniciadidi\n"
-        f"🛠 **Status:** Aktiv\n\n"
-        "Bütün əmrləri görmək üçün `/help` yazın.",
-        reply_markup=builder.as_markup()
+    text = (
+        "🤖 Flower-Security Premium Bot\n\n"
+        "Mən qrupların təhlükəsizliyini təmin etmək,qrup idarəsində kömək üçün botam , "
+        "qrupunuza məni əlavə edərək istifadə edə bilərsiniz.\n\n"
+        "Kömək üçün /help yazın."
     )
+    await message.answer(text, reply_markup=builder.as_markup())
 
-# --- HELP MENYUSU ---
-@dp.message(Command("help"))
-async def help_command(message: types.Message):
-    help_text = (
-        "📜 **Botun Əmrləri:**\n\n"
-        "🛡 **Federasiya:**\n"
-        "• `/newfed [ad]` - Yeni Fed yaradır\n"
-        "• `/joinfed [id]` - Qrupu Fed-ə bağlayır\n"
-        "• `/gfban` - Fed səviyyəsində ban (Reply)\n"
-        "• `/ungfban` - Fed banını açır\n"
-        "• `/gfedpromote` - Fed admini təyin edir\n\n"
-        "⚙️ **Qrup İdarəetmə:**\n"
-        "• `/admin [yetgi]` - Admin təyin edir (Reply)\n"
-        "• `/unadmin` - Adminliyi alır\n"
-        "• `/stiker off/on` - Stikerləri bağlayır/açır\n"
-        "• `/setwelcome [mətn]` - Qarşılama mesajı\n"
-    )
-    await message.answer(help_text)
+# --- BAN VƏ UNBAN ƏMRLƏRİ ---
 
-# --- QRUPA ƏLAVƏ EDİLDİKDƏ TƏŞƏKKÜR ---
-@dp.message(F.new_chat_members)
-async def on_bot_join(message: types.Message):
-    bot_obj = await bot.get_me()
-    for user in message.new_chat_members:
-        if user.id == bot_obj.id:
-            await message.answer("🎉 Məni qrupa əlavə etdiyiniz üçün təşəkkürlər! Qrupun tam təhlükəsizliyi artıq mənim əlimdədir. Zəhmət olmasa məni admin edin.")
+@dp.message(Command("ban"))
+async def simple_ban(message: types.Message):
+    if message.chat.type == "private":
+        return await message.answer("⚠️ Bu əmr yalnız qruplarda işləyir!")
+    
+    if not await is_admin(message.chat.id, message.from_user.id):
+        return await message.answer("❌ Sizin ban etmək yetginiz yoxdur.")
 
-# --- BAN SİSTEMİ (DÜZƏLDİLMİŞ) ---
-@dp.message(Command("gfban"))
-async def gfban(message: types.Message):
     if not message.reply_to_message:
         return await message.answer("Ban etmək üçün istifadəçini reply edin.")
-    
+
+    try:
+        await bot.ban_chat_member(message.chat.id, message.reply_to_message.from_user.id)
+        await message.answer(f"🚫 {message.reply_to_message.from_user.first_name} qrupdan ban olundu.")
+    except:
+        await message.answer("❌ Xəta! Botun admin hüququnu yoxlayın.")
+
+@dp.message(Command("unban"))
+async def simple_unban(message: types.Message):
+    if message.chat.type == "private":
+        return await message.answer("⚠️ Bu əmr yalnız qruplarda işləyir!")
+
+    if not await is_admin(message.chat.id, message.from_user.id):
+        return await message.answer("❌ Sizin yetginiz yoxdur.")
+
+    if not message.reply_to_message:
+        return await message.answer("Banı açmaq üçün istifadəçini reply edin.")
+
+    try:
+        await bot.unban_chat_member(message.chat.id, message.reply_to_message.from_user.id, only_if_banned=True)
+        await message.answer(f"✅ {message.reply_to_message.from_user.first_name} banı açıldı.")
+    except:
+        await message.answer("❌ Xəta baş verdi.")
+
+# --- FEDERASİYA BANLARI (GFBAN) ---
+
+@dp.message(Command("gfban"))
+async def global_ban(message: types.Message):
+    if message.chat.type == "private":
+        return await message.answer("⚠️ Bu əmr yalnız qruplarda işləyir!")
+
     fed_id = group_feds.get(message.chat.id)
     if not fed_id:
-        return await message.answer("❌ Bu qrup hər hansı bir federasiyaya bağlı deyil.")
+        return await message.answer("❌ Bu qrup federasiyaya qoşulmayıb.")
 
-    user_id = message.from_user.id
-    if user_id != fed_db[fed_id]["owner"] and user_id not in fed_db[fed_id]["admins"]:
-        return await message.answer("❌ Sizin buna yetginiz yoxdur.")
+    if message.from_user.id != fed_db[fed_id]["owner"] and message.from_user.id not in fed_db[fed_id]["admins"]:
+        return await message.answer("❌ Federasiya yetginiz yoxdur.")
+
+    if not message.reply_to_message:
+        return await message.answer("GFBAN üçün reply edin.")
 
     target_id = message.reply_to_message.from_user.id
     fed_db[fed_id]["banned_users"].add(target_id)
     
     try:
         await bot.ban_chat_member(message.chat.id, target_id)
-        await message.answer(f"🌏 **GFBAN edildi!**\nFederasiya: {fed_db[fed_id]['name']}")
+        await message.answer(f"🌏 GFBAN! İstifadəçi {fed_db[fed_id]['name']} federasiyasından qovuldu.")
     except:
-        await message.answer("❌ Xəta! Bot admin olmalıdır.")
+        pass
 
-# --- DİGƏR FUNKSİYALAR (Admin, Unadmin, Stiker) ---
-@dp.message(Command("admin"))
-async def promote(message: types.Message, command: CommandObject):
-    if not await is_admin(message.chat.id, message.from_user.id): return
-    if not message.reply_to_message: return
-    title = command.args or "Admin"
-    user_id = message.reply_to_message.from_user.id
-    try:
-        await bot.promote_chat_member(message.chat.id, user_id, can_delete_messages=True, can_restrict_members=True, can_pin_messages=True)
-        await bot.set_chat_administrator_custom_title(message.chat.id, user_id, title)
-        await message.answer(f"✅ {message.reply_to_message.from_user.first_name} indi **{title}** rütbəsində admindir!")
-    except: await message.answer("❌ Botda admin təyin etmək hüququ yoxdur.")
-
-@dp.message(Command("stiker"))
-async def st_toggle(message: types.Message, command: CommandObject):
-    if not await is_admin(message.chat.id, message.from_user.id): return
-    status = (command.args.lower() == "off") if command.args else False
-    if message.chat.id not in group_settings: group_settings[message.chat.id] = {}
-    group_settings[message.chat.id]["sticker_block"] = status
-    await message.answer(f"🚫 Stiker bloku: {'Aktiv' if status else 'Deaktiv'}")
-
+# --- DİGƏR FİLTRLƏR (STİKER, SÖYÜŞ) ---
 @dp.message()
-async def filter_messages(message: types.Message):
-    # Stiker silmə
+async def filter_handler(message: types.Message):
+    if message.chat.type == "private": return
+    
+    # Stiker bloku
     if group_settings.get(message.chat.id, {}).get("sticker_block", False):
         if message.sticker or message.animation or message.premium_animation:
             await message.delete()
             return
-    # Söyüş silmə
+
+    # Söyüş bloku
     if message.text and any(word in message.text.lower() for word in BAD_WORDS):
         await message.delete()
 
