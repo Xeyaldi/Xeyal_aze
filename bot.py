@@ -13,7 +13,7 @@ from aiogram.types import (
     BotCommand
 )
 
-# --- LOGLAMA SİSTEMİ ---
+# --- LOGLAMA SİSTEMİ (Xətaları izləmək üçün) ---
 logging.basicConfig(level=logging.INFO)
 
 # --- KONFİQURASİYA ---
@@ -30,10 +30,13 @@ group_settings = {}
 custom_filters = {} 
 user_warns = {}
 
-# --- SÖYÜŞ SİYAHISI (TAM) ---
-BAD_WORDS = ["söyüş1", "söyüş2", "qehbe", "bic", "sq", "amciq", "gotveran", "peyser", "sik", "daşaq", "siktir", "gicdıllaq", "atdıran", "fahişə", "dalbayob"] 
+# --- SÖYÜŞ SİYAHISI (TAM GENİŞ) ---
+BAD_WORDS = [
+    "söyüş1", "söyüş2", "qehbe", "bic", "sq", "amciq", "gotveran", 
+    "peyser", "sik", "daşaq", "siktir", "gicdıllaq", "atdıran", "fahişə", "dalbayob"
+] 
 
-# --- ADMİN YOXLAMA ---
+# --- ADMİN YOXLAMA FUNKSİYASI ---
 async def check_admin_status(chat_id: int, user_id: int):
     if user_id == OWNER_ID: return "owner"
     try:
@@ -44,7 +47,7 @@ async def check_admin_status(chat_id: int, user_id: int):
     except:
         return "user"
 
-# --- BUTONLAR (DEVELOPER VƏ DƏSTƏK TAMDIR) ---
+# --- BUTON QURUCUSU (DEVELOPER DÜYMƏSİ DAXİL) ---
 def get_main_btns():
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="Kömək Menyu 📚", callback_data="help_callback"))
@@ -67,7 +70,7 @@ async def cmd_start(message: Message):
     )
     await message.answer(text, reply_markup=get_main_btns())
 
-# --- HELP KOMANDASI ---
+# --- HELP KOMANDASI (DETALLI) ---
 @dp.message(Command("help"))
 async def cmd_help(message: Message):
     help_text = (
@@ -82,7 +85,7 @@ async def cmd_help(message: Message):
         "• /unadmin - Admin rütbəsini geri alır\n"
         "• /ban - İstifadəçini qovur\n"
         "• /mute - İstifadəçini səssizə alır\n"
-        "• /purge - Mesajları reply-dan aşağı təmizləyir\n\n"
+        "• /purge - Mesajları təmizləyir\n\n"
         "🔍 Filtrlər:\n"
         "• /filter [söz] - Xüsusi cavab təyin edir\n"
         "• /stop [söz] - Təyin edilmiş filtri silir\n"
@@ -91,8 +94,8 @@ async def cmd_help(message: Message):
         "🔐 Təhlükəsizlik:\n"
         "• /lock - Qrupu tam bağlayır\n"
         "• /unlock - Qrupu açır\n"
-        "• /info - İstifadəçi ID və status məlumatı\n"
-        "• /reload - Sazlamaları və adminləri yeniləyir"
+        "• /info - İstifadəçi ID məlumatı\n"
+        "• /reload - Sazlamaları yeniləyir"
     )
     await message.answer(help_text, reply_markup=get_main_btns())
 
@@ -103,7 +106,7 @@ async def cmd_reload(message: Message):
     if status == "user": return
     m = await message.answer("🔄 Sazlamalar və admin siyahısı yenilənir...")
     await asyncio.sleep(1.5)
-    await m.edit_text("✅ Sazlamalar uğurla yeniləndi! Bot tam hazır vəziyyətdədir.")
+    await m.edit_text("✅ Sazlamalar uğurla yeniləndi!")
 
 # --- ADMİN VƏ RÜTBƏ SİSTEMİ ---
 @dp.message(Command("admin"))
@@ -143,7 +146,7 @@ async def cmd_stiker(message: Message, command: CommandObject):
     choice = command.args.lower()
     if choice == "off":
         group_settings[message.chat.id] = {"sticker_block": True}
-        await message.answer("🚫 Stiker və Gif bloku aktiv edildi")
+        await message.answer("🚫 Stiker və Gif bloku aktiv edildi. Artıq silinəcəklər.")
     elif choice == "on":
         group_settings[message.chat.id] = {"sticker_block": False}
         await message.answer("✅ Stiker və Gif bloku deaktiv edildi.")
@@ -218,14 +221,13 @@ async def main_handler(message: Message):
     status = await check_admin_status(message.chat.id, message.from_user.id)
     chat_id = message.chat.id
 
-    # 1. STİKER, GİF VƏ ANİMASİYA SİLMƏ (DÜZƏLDİLDİ)
+    # 1. STİKER, GİF VƏ ANİMASİYA SİLMƏ (QƏTİ DÜZƏLDİLDİ)
     if message.sticker or message.animation or message.video_note:
         if group_settings.get(chat_id, {}).get("sticker_block") and status == "user":
             try:
                 await bot.delete_message(chat_id, message.message_id)
                 return 
-            except:
-                pass
+            except: pass
 
     # 2. MƏTN YOXLAMALARI
     if message.text:
