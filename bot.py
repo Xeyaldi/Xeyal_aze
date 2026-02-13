@@ -158,7 +158,7 @@ async def top_menu(message: types.Message):
     builder.row(InlineKeyboardButton(text="📊 Bütün zamanlarda", callback_data="top_ümumi"))
     
     text = (
-        "📊 Message Scor\n"
+        "📊 Mesaj sayğacı 📝\n"
         "------------------\n"
         "👥 Bu qrup üçün sıralama növünü seçin.\n\n"
         f"Bu menyu {message.from_user.first_name} tərəfindən açıldı."
@@ -181,7 +181,7 @@ async def process_top_callback(callback: types.CallbackQuery):
         res += "Məlumat yoxdur."
     else:
         for i, r in enumerate(rows, 1):
-            res += f"⬜ {i}. {r[0]} : {r[1]}\n"
+            res += f"🔹 {i}. {r[0]} : {r[1]}\n"
     
     db_cursor.execute("SELECT msg_sayi FROM scores WHERE user_id = ? AND chat_id = ? AND kateqoriya = ?", (callback.from_user.id, callback.message.chat.id, kat))
     own = db_cursor.fetchone()
