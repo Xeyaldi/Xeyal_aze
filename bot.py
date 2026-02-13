@@ -140,10 +140,10 @@ async def cmd_stiker(message: Message, command: CommandObject):
     choice = command.args.lower()
     if choice == "off":
         group_settings[message.chat.id] = {"sticker_block": True}
-        await message.answer("🚫 Stiker bloku aktiv edildi. Stikerlər silinəcək.")
+        await message.answer("🚫 Stiker bloku aktiv edildi.")
     elif choice == "on":
         group_settings[message.chat.id] = {"sticker_block": False}
-        await message.answer("✅ Stiker bloku deaktiv edildi. Stikerlərə icazə verildi.")
+        await message.answer("✅ Stiker bloku deaktiv edildi.")
 
 # --- PURGE (MESAJ TƏMİZLƏMƏ) ---
 @dp.message(Command("purge"))
