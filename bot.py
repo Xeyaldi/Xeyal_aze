@@ -119,7 +119,7 @@ async def start(message: types.Message):
 @dp.message(Command("help"))
 async def help_cmd(message: types.Message):
     text = (
-        "📘 HT-Security Bot – Kömək\n\n"
+        "📘 Flower-Security Bot – Kömək\n\n"
         "👮 Admin Komandaları:\n"
         "• /ban – İstifadəçini banla (reply)\n"
         "• /unban <id> – Banı aç\n"
