@@ -83,7 +83,7 @@ async def global_manager(message: types.Message):
                 pass
 
 # =====================
-# START
+# START (Düzəliş edildi: Developer butonu, Help əmri və Yönlü yazı)
 # =====================
 @dp.message(Command("start"))
 async def start(message: types.Message):
@@ -94,19 +94,21 @@ async def start(message: types.Message):
         types.InlineKeyboardButton(text="📢 Kanal", url="https://t.me/ht_bots"),
         types.InlineKeyboardButton(text="💬 Dəstək", url="https://t.me/ht_bots_chat")
     )
+    # Developer düyməsi əlavə edildi
+    kb.row(types.InlineKeyboardButton(text="👨‍💻 Developer", url="tg://user?id=8024893255"))
 
     text = (
-        "🤖 **HT-Security Moderation Bot**\n\n"
-        "Bu bot Telegram qrupları üçün hazırlanmış **tam təhlükəsizlik və idarəetmə** botudur.\n\n"
-        "🛡 **İmkanlar:**\n"
+        "🤖 HT-Security Moderation Bot\n\n"
+        "Bu bot Telegram qrupları üçün hazırlanmış tam təhlükəsizlik və idarəetmə botudur.\n\n"
+        "🛡 İmkanlar:\n"
         "• Stiker / GIF / Video-note avtomatik nəzarət\n"
         "• Söyüş və uyğun olmayan sözlərin silinməsi\n"
-        "• `/ban`, `/mute`, `/warn` komandaları\n"
-        "• **Auto-Ban** (warn limiti dolduqda)\n"
-        "• **Fed-Ban** (bir neçə qrup üçün ortaq ban)\n"
-        "• Inline **Admin Panel**\n\n"
-        "👮 Botu qrupa əlavə etdikdən sonra ona **admin səlahiyyəti** verin.\n"
-        "ℹ️ Komandalar üçün `/help` yazın.\n\n"
+        "• /ban, /mute, /warn komandaları\n"
+        "• Auto-Ban (warn limiti dolduqda)\n"
+        "• Fed-Ban (bir neçə qrup üçün ortaq ban)\n"
+        "• Inline Admin Panel\n\n"
+        "👮 Botu qrupa əlavə etdikdən sonra ona admin səlahiyyəti verin.\n"
+        "ℹ️ Əmrlərin siyahısı üçün /help yazın.\n\n"
         "⚡ Sürətli • Stabil • Təhlükəsiz"
     )
     await message.answer(text, reply_markup=kb.as_markup())
@@ -117,24 +119,24 @@ async def start(message: types.Message):
 @dp.message(Command("help"))
 async def help_cmd(message: types.Message):
     text = (
-        "📘 **HT-Security Bot – Kömək**\n\n"
-        "👮 **Admin Komandaları:**\n"
-        "• `/ban` – İstifadəçini banla (reply)\n"
-        "• `/unban <id>` – Banı aç\n"
-        "• `/mute [10m|2h|1d]` – Səssizə al\n"
-        "• `/unmute` – Səssizi aç\n"
-        "• `/warn` – Xəbərdarlıq ver\n"
-        "• `/warnings` – Warn sayını göstər\n"
-        "• `/clearwarns` – Warnları sil\n"
-        "• `/setwarn <sayı>` – Auto-ban limiti\n\n"
-        "🌐 **Fed:**\n"
-        "• `/newfed <ad>` – Fed yarat\n"
-        "• `/joinfed <id>` – Qrupu fed-ə bağla\n"
-        "• `/fban` – Fed üzrə ban\n\n"
-        "⚙️ **Ayarlar:**\n"
-        "• `/stiker on|off` – Stiker nəzarəti\n"
-        "• `/panel` – Admin panel\n\n"
-        "ℹ️ Botun işləməsi üçün **admin icazəsi** lazımdır."
+        "📘 HT-Security Bot – Kömək\n\n"
+        "👮 Admin Komandaları:\n"
+        "• /ban – İstifadəçini banla (reply)\n"
+        "• /unban <id> – Banı aç\n"
+        "• /mute [10m|2h|1d] – Səssizə al\n"
+        "• /unmute – Səssizi aç\n"
+        "• /warn – Xəbərdarlıq ver\n"
+        "• /warnings – Warn sayını göstər\n"
+        "• /clearwarns – Warnları sil\n"
+        "• /setwarn <sayı> – Auto-ban limiti\n\n"
+        "🌐 Fed:\n"
+        "• /newfed <ad> – Fed yarat\n"
+        "• /joinfed <id> – Qrupu fed-ə bağla\n"
+        "• /fban – Fed üzrə ban\n\n"
+        "⚙️ Ayarlar:\n"
+        "• /stiker on|off – Stiker nəzarəti\n"
+        "• /panel – Admin panel\n\n"
+        "ℹ️ Botun işləməsi üçün admin icazəsi lazımdır."
     )
     await message.answer(text)
 
@@ -274,7 +276,7 @@ async def fban(message: types.Message):
             fed_db[fed_id]["banned"].add(user_id)
             try:
                 await bot.ban_chat_member(message.chat.id, user_id)
-                await message.answer("🌐 **FED BAN:** İstifadəçi federasiya üzrə banlandı.")
+                await message.answer("🌐 FED BAN: İstifadəçi federasiya üzrə banlandı.")
             except: pass
 
 # =====================
