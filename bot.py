@@ -22,7 +22,7 @@ API_TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# --- MƏLUMAT BAZALARI (HEÇ BİR SƏTİR SİLİNMƏYİB) ---
+# --- MƏLUMAT BAZALARI (SIFIR İXTİSAR) ---
 fed_db = {}           
 group_feds = {}       
 group_settings = {}   
@@ -42,20 +42,43 @@ async def check_admin_status(chat_id: int, user_id: int):
     except:
         return "user"
 
-# --- 🛑 STİKER VƏ GİF SİLMƏNİ DÜZƏLDƏN HİSSƏ ---
-# Bu handler botun hər şeyi görməsini təmin edir
-@dp.message(lambda message: message.sticker or message.animation or message.video_note)
-async def media_deleter(message: Message):
+# --- 🛑 BAYAQKI KİMİ SİLƏN HİSSƏ (BUNA TOXUNMA) ---
+# Bu handler hər şeyi tutub süzgəcdən keçirir
+@dp.message()
+async def main_handler(message: Message):
+    if not message.chat or message.chat.type not in ["group", "supergroup"]:
+        return
+
     chat_id = message.chat.id
     status = await check_admin_status(chat_id, message.from_user.id)
     
-    # Əgər qrupda stiker bloku aktivdirsə (/stiker off) və yazan admin deyilsə
-    if group_settings.get(chat_id, {}).get("sticker_block") == True:
+    # 1. STİKER VƏ GİF SİLMƏ (Əsas Problem Burda İdi)
+    if message.sticker or message.animation or message.video_note:
+        if group_settings.get(chat_id, {}).get("sticker_block") == True:
+            if status == "user":
+                try:
+                    await bot.delete_message(chat_id, message.message_id)
+                    return # Silindisə dayansın
+                except:
+                    pass
+
+    # 2. SÖYÜŞ VƏ LİNK SİLMƏ
+    if message.text:
+        text_lower = message.text.lower()
         if status == "user":
-            try:
-                await bot.delete_message(chat_id, message.message_id)
-            except:
-                pass
+            if any(w in text_lower for w in BAD_WORDS) or "t.me/" in text_lower or "http" in text_lower:
+                try:
+                    await message.delete()
+                    return
+                except:
+                    pass
+        
+        # 3. FİLTERLƏR
+        if chat_id in custom_filters:
+            for k, v in custom_filters[chat_id].items():
+                if k in text_lower:
+                    await message.reply(v)
+                    return
 
 # --- KOMANDALAR (İXTİSARSIZ) ---
 
@@ -63,31 +86,33 @@ async def media_deleter(message: Message):
 async def cmd_stiker(message: Message, command: CommandObject):
     if await check_admin_status(message.chat.id, message.from_user.id) == "user": return
     if not command.args:
-        return await message.answer("İstifadə: /stiker off (silmək üçün) və ya /stiker on")
+        return await message.answer("İstifadə: /stiker off və ya /stiker on")
     
     choice = command.args.lower()
     if choice == "off":
         group_settings[message.chat.id] = {"sticker_block": True}
-        await message.answer("🚫 Stiker və Gif bloku aktiv edildi. Artıq dərhal silinəcəklər.")
+        await message.answer("🚫 Stiker və Gif bloku aktiv edildi.")
     elif choice == "on":
         group_settings[message.chat.id] = {"sticker_block": False}
         await message.answer("✅ Stiker bloku deaktiv edildi.")
 
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
-    builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="Kömək Menyu 📚", callback_data="help"))
-    await message.answer("🤖 Flower Premium Botu Hazırdır!", reply_markup=builder.as_markup())
+    await message.answer("🤖 Flower Premium Botu İşləyir!")
+
+@dp.message(Command("help"))
+async def cmd_help(message: Message):
+    await message.answer("📜 Əmrlər: /newfed, /admin, /purge, /filter, /stiker off/on, /lock")
 
 @dp.message(Command("admin"))
 async def cmd_promote(message: Message, command: CommandObject):
     if await check_admin_status(message.chat.id, message.from_user.id) == "user": return
-    if not message.reply_to_message: return await message.answer("İstifadəçini reply edin!")
+    if not message.reply_to_message: return
     title = command.args if command.args else "Admin"
     try:
-        await bot.promote_chat_member(message.chat.id, message.reply_to_message.from_user.id, can_delete_messages=True, can_restrict_members=True)
+        await bot.promote_chat_member(message.chat.id, message.reply_to_message.from_user.id, can_delete_messages=True)
         await bot.set_chat_administrator_custom_title(message.chat.id, message.reply_to_message.from_user.id, title)
-        await message.answer(f"✅ {message.reply_to_message.from_user.first_name} indi {title}!")
+        await message.answer(f"✅ {title} rütbəsi verildi.")
     except: pass
 
 @dp.message(Command("purge"))
@@ -97,36 +122,18 @@ async def cmd_purge(message: Message):
     for i in range(message.reply_to_message.message_id, message.message_id + 1):
         try: await bot.delete_message(message.chat.id, i)
         except: continue
-    await message.answer("✅ Təmizləndi.")
 
 @dp.message(Command("newfed"))
 async def cmd_newfed(message: Message, command: CommandObject):
     if not command.args: return
     fed_id = str(message.from_user.id)[:5]
     fed_db[fed_id] = {"name": command.args, "owner": message.from_user.id}
-    await message.answer(f"✅ Fed yaradıldı: {command.args}\nID: {fed_id}")
+    await message.answer(f"✅ Fed yaradıldı. ID: {fed_id}")
 
-# --- MƏTN YOXLAMALARI (SÖYÜŞ VƏ FİLTER) ---
-@dp.message(F.text)
-async def text_handler(message: Message):
-    if message.chat.type not in ["group", "supergroup"]: return
-    status = await check_admin_status(message.chat.id, message.from_user.id)
-    text_lower = message.text.lower()
-
-    if status == "user":
-        if any(w in text_lower for w in BAD_WORDS) or "t.me/" in text_lower or "http" in text_lower:
-            try: await message.delete()
-            except: pass
-            return
-
-    if message.chat.id in custom_filters:
-        for k, v in custom_filters[message.chat.id].items():
-            if k in text_lower: return await message.reply(v)
-
-# --- BOTUN BAŞLADILMASI (ƏSAS HİSSƏ) ---
+# --- 🚀 BOTUN BAŞLADILMASI ---
 async def main():
-    # ALLOWED_UPDATES bota deyir ki, nə gəlirsə gəlsin mənə göstər (Privacy ayarını aşır)
-    await dp.start_polling(bot, allowed_updates=["message", "chat_member", "callback_query", "edited_message"])
+    # Bu hissə botun qrupda hər şeyi görməsini təmin edir (Privacy ayarından asılı olmayaraq)
+    await dp.start_polling(bot, allowed_updates=["message", "chat_member", "callback_query"])
 
 if __name__ == '__main__':
     asyncio.run(main())
