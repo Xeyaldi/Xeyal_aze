@@ -380,4 +380,19 @@ async def reset_timer():
     while True:
         now = datetime.now()
         if now.hour == 0 and now.minute == 0:
-            db_cursor.execute("UPDATE scores S
+                        db_cursor.execute("UPDATE scores SET msg_sayi = 0 WHERE kateqoriya = 'günlük'")
+            if now.weekday() == 0:
+                db_cursor.execute("UPDATE scores SET msg_sayi = 0 WHERE kateqoriya = 'həftəlik'")
+            if now.day == 1:
+                db_cursor.execute("UPDATE scores SET msg_sayi = 0 WHERE kateqoriya = 'aylıq'")
+            db_conn.commit()
+            await asyncio.sleep(60)
+        await asyncio.sleep(30)
+
+async def main():
+    asyncio.create_task(reset_timer())
+    await bot.delete_webhook(drop_pending_updates=True)
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
