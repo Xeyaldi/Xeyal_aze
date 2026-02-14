@@ -242,15 +242,22 @@ async def my_stats(message: types.Message):
     res = db_cursor.fetchone()
     await message.answer(f"👤 {message.from_user.first_name}\n📊 Ümumi mesajın: {res[0] if res else 0}")
 
+# BURADA İSTƏDİYİN DƏYİŞİKLİYİ ETDİM
 @dp.message(Command("stiker"))
 async def stiker_settings(message: types.Message, command: CommandObject):
     u_member = await bot.get_chat_member(message.chat.id, message.from_user.id)
+    # Sadəcə qurucu (creator) və ya bot sahibi (OWNER_ID) istifadə edə bilər
     if u_member.status != "creator" and message.from_user.id != OWNER_ID:
         return await message.answer("⚠️ Bu tənzimləməni yalnız qrup sahibi dəyişə bilər!")
-    val = 1 if command.args == "off" else 0
-    db_cursor.execute("INSERT OR REPLACE INTO settings (chat_id, stiker_bloku) VALUES (?, ?)", (message.chat.id, val))
-    db_conn.commit()
-    await message.answer("🚫 Stiker və gif bloku aktiv edildi." if val else "🔓 Stiker və gif bloku deaktiv edildi.")
+    
+    if command.args == "off":
+        db_cursor.execute("INSERT OR REPLACE INTO settings (chat_id, stiker_bloku) VALUES (?, 1)", (message.chat.id,))
+        db_conn.commit()
+        await message.answer("🚫 Stiker və gif bloku aktivdir")
+    elif command.args == "on":
+        db_cursor.execute("INSERT OR REPLACE INTO settings (chat_id, stiker_bloku) VALUES (?, 0)", (message.chat.id,))
+        db_conn.commit()
+        await message.answer("🔓 Stiker və gif bloku deaktivdir")
 
 @dp.message(Command("dice", "slot", "basket", "dart", "futbol"))
 async def games_handler(message: types.Message):
@@ -292,13 +299,16 @@ async def global_handler(message: types.Message):
                 return await message.answer(f"⚠️ {mention}, qrupda link paylaşmaq qadağandır!", parse_mode="Markdown")
             except: pass
 
-    # STİKER VƏ GİF
+    # STİKER VƏ GİF QADAĞASI (BURADA STATUS 1 OLARSA HƏR KƏSİ SİLİR)
     db_cursor.execute("SELECT stiker_bloku FROM settings WHERE chat_id = ?", (c_id,))
     s = db_cursor.fetchone()
     if s and s[0] == 1:
+        # Əgər blok aktivdirsə (1), stiker və ya gif (animation) gəldikdə sil
         if message.sticker or message.animation:
-            try: return await message.delete()
-            except: pass
+            try:
+                return await message.delete()
+            except:
+                pass
 
     # SAYĞAC
     if not (message.text and message.text.startswith("/")):
