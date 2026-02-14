@@ -33,7 +33,7 @@ def init_db():
     cursor = connection.cursor()
     cursor.execute('''CREATE TABLE IF NOT EXISTS scores (chat_id INTEGER, user_id INTEGER, kateqoriya TEXT, msg_sayi INTEGER DEFAULT 0, PRIMARY KEY (chat_id, user_id, kateqoriya))''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS user_info (user_id INTEGER PRIMARY KEY, first_name TEXT)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS settings (chat_id INTEGER PRIMARY KEY, stiker_bloku INTEGER DEFAULT 0)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS settings (chat_id INTEGER PRIMARY KEY, stiker_bloku INTEGER DEFAULT 0, welcome_msg TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS warns (chat_id INTEGER, user_id INTEGER, say INTEGER DEFAULT 0, PRIMARY KEY (chat_id, user_id))''')
     connection.commit()
     return connection, cursor
@@ -83,6 +83,7 @@ async def help_handler(message: types.Message):
     help_text = (
         "❓ Kömək Menyusu\n\n"
         "👮 Admin: /ban, /unban, /mute, /unmute, /warn, /unwarn, /stiker on|off\n"
+        "👋 Qarşılama: /setwelcome [mesaj] - (Qrup admini tərəfindən)\n"
         "📊 Stat: /top, /my\n"
         "🎲 Oyun: /dice, /slot, /basket, /dart, /futbol"
     )
@@ -91,6 +92,25 @@ async def help_handler(message: types.Message):
 # ==========================================================
 # 5. ADMIN ƏMRLƏRİ
 # ==========================================================
+
+# --- YENİ: SETWELCOME ƏMRİ ---
+@dp.message(Command("setwelcome"))
+async def set_welcome_handler(message: types.Message, command: CommandObject):
+    if not await check_permissions(message): return
+    
+    # Qrup parametri dəyişmə yetkisini yoxla
+    u_member = await bot.get_chat_member(message.chat.id, message.from_user.id)
+    if u_member.status != "creator" and not getattr(u_member, 'can_change_info', False) and message.from_user.id != OWNER_ID:
+        return await message.answer("⚠️ Bu əmri istifadə etmək üçün 'Məlumatları dəyişmək' yetkiniz olmalıdır!")
+
+    if not command.args:
+        return await message.answer("İstifadə: `/setwelcome Xoş gəldin {user}!`\n\nNot: `{user}` yazsanız yeni gələnin adını qeyd edərəm.")
+
+    welcome_msg = command.args
+    db_cursor.execute("INSERT INTO settings (chat_id, welcome_msg) VALUES (?, ?) ON CONFLICT(chat_id) DO UPDATE SET welcome_msg=excluded.welcome_msg", (message.chat.id, welcome_msg))
+    db_conn.commit()
+    await message.answer(f"✅ Qarşılama mesajı yadda saxlanıldı:\n\n{welcome_msg}")
+
 @dp.message(Command("ban"))
 async def ban_handler(message: types.Message):
     if not await check_permissions(message): return
@@ -242,20 +262,18 @@ async def my_stats(message: types.Message):
     res = db_cursor.fetchone()
     await message.answer(f"👤 {message.from_user.first_name}\n📊 Ümumi mesajın: {res[0] if res else 0}")
 
-# BURADA İSTƏDİYİN DƏYİŞİKLİYİ ETDİM
 @dp.message(Command("stiker"))
 async def stiker_settings(message: types.Message, command: CommandObject):
     u_member = await bot.get_chat_member(message.chat.id, message.from_user.id)
-    # Sadəcə qurucu (creator) və ya bot sahibi (OWNER_ID) istifadə edə bilər
     if u_member.status != "creator" and message.from_user.id != OWNER_ID:
         return await message.answer("⚠️ Bu tənzimləməni yalnız qrup sahibi dəyişə bilər!")
     
     if command.args == "off":
-        db_cursor.execute("INSERT OR REPLACE INTO settings (chat_id, stiker_bloku) VALUES (?, 1)", (message.chat.id,))
+        db_cursor.execute("INSERT INTO settings (chat_id, stiker_bloku) VALUES (?, 1) ON CONFLICT(chat_id) DO UPDATE SET stiker_bloku=1", (message.chat.id,))
         db_conn.commit()
         await message.answer("🚫 Stiker və gif bloku aktivdir")
     elif command.args == "on":
-        db_cursor.execute("INSERT OR REPLACE INTO settings (chat_id, stiker_bloku) VALUES (?, 0)", (message.chat.id,))
+        db_cursor.execute("INSERT INTO settings (chat_id, stiker_bloku) VALUES (?, 0) ON CONFLICT(chat_id) DO UPDATE SET stiker_bloku=0", (message.chat.id,))
         db_conn.commit()
         await message.answer("🔓 Stiker və gif bloku deaktivdir")
 
@@ -268,6 +286,15 @@ async def games_handler(message: types.Message):
 # ==========================================================
 # 8. GLOBAL HANDLER (QORUMALAR VƏ SAYĞAC)
 # ==========================================================
+@dp.chat_member()
+async def welcome_new_member(event: types.ChatMemberUpdated):
+    if event.new_chat_member.status == "member":
+        db_cursor.execute("SELECT welcome_msg FROM settings WHERE chat_id = ?", (event.chat.id,))
+        res = db_cursor.fetchone()
+        if res and res[0]:
+            msg = res[0].replace("{user}", event.new_chat_member.user.first_name)
+            await bot.send_message(event.chat.id, msg)
+
 @dp.message()
 async def global_handler(message: types.Message):
     if not message.chat or message.chat.type == "private": return
@@ -299,16 +326,14 @@ async def global_handler(message: types.Message):
                 return await message.answer(f"⚠️ {mention}, qrupda link paylaşmaq qadağandır!", parse_mode="Markdown")
             except: pass
 
-    # STİKER VƏ GİF QADAĞASI (BURADA STATUS 1 OLARSA HƏR KƏSİ SİLİR)
+    # STİKER VƏ GİF QADAĞASI
     db_cursor.execute("SELECT stiker_bloku FROM settings WHERE chat_id = ?", (c_id,))
     s = db_cursor.fetchone()
     if s and s[0] == 1:
-        # Əgər blok aktivdirsə (1), stiker və ya gif (animation) gəldikdə sil
         if message.sticker or message.animation:
             try:
                 return await message.delete()
-            except:
-                pass
+            except: pass
 
     # SAYĞAC
     if not (message.text and message.text.startswith("/")):
