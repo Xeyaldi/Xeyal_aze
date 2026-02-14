@@ -44,6 +44,11 @@ db_conn, db_cursor = init_db()
 # 3. YETKİ YOXLANIŞI (ROSE STYLE)
 # ==========================================================
 async def check_permissions(message: types.Message):
+    # Şəxsi çat yoxlanışı (Tələb etdiyin qoruma)
+    if message.chat.type == "private":
+        await message.answer("⚠️ Bu komut qruplar üçündür!")
+        return False
+        
     user_member = await bot.get_chat_member(message.chat.id, message.from_user.id)
     if user_member.status not in ("administrator", "creator") and message.from_user.id != OWNER_ID:
         await message.answer("Sizin bu komandanı icra etmək üçün lazımi icazəniz yoxdur.")
@@ -90,15 +95,31 @@ async def help_handler(message: types.Message):
     await message.answer(help_text)
 
 # ==========================================================
+# YENİ: QURUCU ÜÇÜN LEAVE ƏMRİ (ŞƏXSİDƏ İŞLƏYİR)
+# ==========================================================
+@dp.message(Command("leave"))
+async def owner_leave_handler(message: types.Message, command: CommandObject):
+    if message.from_user.id != OWNER_ID:
+        return # Qurucu deyilsə heç nə etmə
+        
+    if not command.args:
+        return await message.answer("Nümunə: `/leave -100123456789`", parse_mode="Markdown")
+
+    chat_id = command.args
+    try:
+        await bot.leave_chat(chat_id)
+        await message.answer(f"✅ Bot uğurla qrupdan çıxarıldı: {chat_id}")
+    except Exception as e:
+        await message.answer(f"❌ Xəta baş verdi: {e}")
+
+# ==========================================================
 # 5. ADMIN ƏMRLƏRİ
 # ==========================================================
 
-# --- YENİ: SETWELCOME ƏMRİ ---
 @dp.message(Command("setwelcome"))
 async def set_welcome_handler(message: types.Message, command: CommandObject):
     if not await check_permissions(message): return
     
-    # Qrup parametri dəyişmə yetkisini yoxla
     u_member = await bot.get_chat_member(message.chat.id, message.from_user.id)
     if u_member.status != "creator" and not getattr(u_member, 'can_change_info', False) and message.from_user.id != OWNER_ID:
         return await message.answer("⚠️ Bu əmri istifadə etmək üçün 'Məlumatları dəyişmək' yetkiniz olmalıdır!")
@@ -202,7 +223,9 @@ async def unwarn_handler(message: types.Message):
 # ==========================================================
 @dp.message(Command("top"))
 async def top_menu(message: types.Message):
-    if message.chat.type == "private": return
+    if message.chat.type == "private": 
+        return await message.answer("⚠️ Bu komut qruplar üçündür!")
+        
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="📅 Günlük", callback_data="top_günlük"), 
                 InlineKeyboardButton(text="📅 Həftəlik", callback_data="top_həftəlik"),
@@ -257,6 +280,9 @@ async def back_to_top(callback: types.CallbackQuery):
 # ==========================================================
 @dp.message(Command("my"))
 async def my_stats(message: types.Message):
+    if message.chat.type == "private":
+        return await message.answer("⚠️ Bu komut qruplar üçündür!")
+        
     u_id = message.from_user.id
     db_cursor.execute("SELECT msg_sayi FROM scores WHERE user_id = ? AND chat_id = ? AND kateqoriya = 'ümumi'", (u_id, message.chat.id))
     res = db_cursor.fetchone()
@@ -264,6 +290,8 @@ async def my_stats(message: types.Message):
 
 @dp.message(Command("stiker"))
 async def stiker_settings(message: types.Message, command: CommandObject):
+    if not await check_permissions(message): return
+    
     u_member = await bot.get_chat_member(message.chat.id, message.from_user.id)
     if u_member.status != "creator" and message.from_user.id != OWNER_ID:
         return await message.answer("⚠️ Bu tənzimləməni yalnız qrup sahibi dəyişə bilər!")
@@ -279,6 +307,8 @@ async def stiker_settings(message: types.Message, command: CommandObject):
 
 @dp.message(Command("dice", "slot", "basket", "dart", "futbol"))
 async def games_handler(message: types.Message):
+    if message.chat.type == "private":
+        return await message.answer("⚠️ Bu komut qruplar üçündür!")
     emojis = {"dice": "🎲", "slot": "🎰", "basket": "🏀", "dart": "🎯", "futbol": "⚽"}
     cmd = message.text.split()[0][1:]
     await message.answer_dice(emoji=emojis.get(cmd, "🎲"))
@@ -350,16 +380,4 @@ async def reset_timer():
     while True:
         now = datetime.now()
         if now.hour == 0 and now.minute == 0:
-            db_cursor.execute("UPDATE scores SET msg_sayi = 0 WHERE kateqoriya = 'günlük'")
-            if now.weekday() == 0: db_cursor.execute("UPDATE scores SET msg_sayi = 0 WHERE kateqoriya = 'həftəlik'")
-            if now.day == 1: db_cursor.execute("UPDATE scores SET msg_sayi = 0 WHERE kateqoriya = 'aylıq'")
-            db_conn.commit()
-            await asyncio.sleep(60)
-        await asyncio.sleep(30)
-
-async def main():
-    asyncio.create_task(reset_timer())
-    await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(bot)
-
-if __name__ == "__main__": asyncio.run(main())
+            db_cursor.execute("UPDATE scores S
