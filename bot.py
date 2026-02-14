@@ -380,7 +380,7 @@ async def reset_timer():
     while True:
         now = datetime.now()
         if now.hour == 0 and now.minute == 0:
-                        db_cursor.execute("UPDATE scores SET msg_sayi = 0 WHERE kateqoriya = 'günlük'")
+            db_cursor.execute("UPDATE scores SET msg_sayi = 0 WHERE kateqoriya = 'günlük'")
             if now.weekday() == 0:
                 db_cursor.execute("UPDATE scores SET msg_sayi = 0 WHERE kateqoriya = 'həftəlik'")
             if now.day == 1:
